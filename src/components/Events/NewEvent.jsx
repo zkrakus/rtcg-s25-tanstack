@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import Modal from "../UI/Modal.jsx";
 import EventForm from "./EventForm.jsx";
-import { createNewEvent } from "../../util/http.js";
+import { createNewEvent, queryClient } from "../../util/http.js";
 import ErrorBlock from "../UI/ErrorBlock.jsx";
 
 export default function NewEvent() {
@@ -11,10 +11,15 @@ export default function NewEvent() {
 
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: createNewEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events']}); // will invalidate anything that includes 'events' query key, unless exact is set to true.
+      navigate('/events');
+    }
   });
 
   function handleSubmit(formData) {
     mutate({ event: formData }); // Since we are using the mutate to pass arguments we don't need to use useState to manage the createNewEvent fn arguments.
+    navigate();
   }
 
   return (
