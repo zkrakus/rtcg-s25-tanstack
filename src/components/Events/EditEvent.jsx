@@ -2,8 +2,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import Modal from "../UI/Modal.jsx";
 import EventForm from "./EventForm.jsx";
-import { useQuery } from "@tanstack/react-query";
-import { fetchEvent } from "../../util/http.js";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { fetchEvent, queryClient, updateEvent } from "../../util/http.js";
 import LoadingIndicator from "../UI/LoadingIndicator.jsx";
 import ErrorBlock from "../UI/ErrorBlock.jsx";
 
@@ -15,9 +15,30 @@ export default function EditEvent() {
     queryFn: ({ siganl }) => fetchEvent({ siganl, id }),
   });
 
+  const { mutate } = useMutation({
+    mutationFn: updateEvent,
+    onMutate: async ({ event }) => {
+      await queryClient.cancelQueries({ queryKey: ["events", id] }); // Cancels active queries against this key since they are about to be invalidated.
+      const previousEvent = queryClient.getQueryData(["events", id]);
+
+      queryClient.setQueryData(["events", id], event); // optimistic update.
+
+      return { previousEvent }; // set context with previous event for rollback if necessary.
+    },
+    onError: (error, data, context) => {
+      queryClient.setQueryData(["events", id], context.previousEvent); // Rolls back optimistic update.
+    },
+    onSettled: () => { // Called whenever mutation is done whether successful or not.
+      queryClient.invalidateQueries(["events", id]); // Invalidate any components that are using this key. // Ensures other components sync if update is successful or not.
+    }
+  });
+
   const navigate = useNavigate();
 
-  function handleSubmit() {}
+  function handleSubmit(formData) {
+    mutate({ id, event: formData });
+    navigate("../");
+  }
 
   function handleClose() {
     navigate("../");
